@@ -11,13 +11,12 @@
 #include <vector>
 #include <iomanip>
 #include <cmath>
-#include "libxl.h"     // Подключение библиотеки LibXL для работы с Excel
+#include "libxl.h"     
 
 using namespace std;
 
-// ============================================================================
 // СТРУКТУРЫ ДАННЫХ
-// ============================================================================
+
 
 // Структура для хранения исходной задачи линейного программирования
 struct LPProblem {
@@ -43,15 +42,15 @@ struct SimplexResult {
     vector<pair<int, int>> pivotHistory;     // Координаты разрешающих элементов (row, col) для каждой итерации
 };
 
-// ============================================================================
+
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-// ============================================================================
+
 extern LPProblem currentProblem;  // Текущая задача
 extern SimplexResult currentResult; // Результат решения
 
-// ============================================================================
+
 // ФУНКЦИИ МЕНЮ И ВВОДА
-// ============================================================================
+
 void show_menu(const string menu[], int num, int active);
 int menu_main_action();
 string inputFilename(const string& prompt);
@@ -59,23 +58,23 @@ bool isValidFilename(const string& filename);
 bool fileExists(const string& filename);
 void waitForEnter();
 
-// ============================================================================
+
 // ФУНКЦИИ РАБОТЫ С ЗАДАЧЕЙ ЛП
-// ============================================================================
+
 void inputProblemFromKeyboard();
 void inputProblemFromFile(const string& filename);
 void clearProblem();
 
-// ============================================================================
+
 // ФУНКЦИИ РЕШЕНИЯ (СИМПЛЕКС-МЕТОД)
-// ============================================================================
+
 // Основной метод решения с использованием М-метода для обработки любых ограничений
 SimplexResult solveSimplex(const LPProblem& prob);
 void printTableau(const vector<vector<double>>& tableau, const vector<string>& headers, int pivotRow, int pivotCol);
 
-// ============================================================================
+
 // ФУНКЦИИ ЭКСПОРТА В EXCEL (LibXL)
-// ============================================================================
+
 // Экспортирует постановку, процесс решения и результаты в файл .xlsx
 bool exportToExcel(const LPProblem& prob, const SimplexResult& res, const string& filename);
 wstring stringToWstring(const string& str); // Вспомогательная функция для конвертации в широкие символы (требование LibXL)

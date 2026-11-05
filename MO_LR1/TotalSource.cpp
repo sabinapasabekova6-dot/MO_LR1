@@ -6,9 +6,9 @@ using namespace std;
 LPProblem currentProblem;
 SimplexResult currentResult;
 
-// ============================================================================
+
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-// ============================================================================
+
 
 wstring stringToWstring(const string& str) {
     // Конвертация std::string в std::wstring для совместимости с LibXL
@@ -113,9 +113,9 @@ int menu_main_action() {
     return n + 1;
 }
 
-// ============================================================================
+
 // ВВОД ДАННЫХ
-// ============================================================================
+
 
 void clearProblem() {
     currentProblem = LPProblem();
@@ -218,9 +218,9 @@ void inputProblemFromFile(const string& filename) {
     waitForEnter();
 }
 
-// ============================================================================
+
 // СИМПЛЕКС-МЕТОД (М-метод для универсальности)
-// ============================================================================
+
 
 SimplexResult solveSimplex(const LPProblem& prob) {
     SimplexResult res;
@@ -442,9 +442,9 @@ void printTableau(const vector<vector<double>>& tableau, const vector<string>& h
     cout << endl;
 }
 
-// ============================================================================
+
 // ЭКСПОРТ В EXCEL (LibXL)
-// ============================================================================
+
 
 bool exportToExcel(const LPProblem& prob, const SimplexResult& res, const string& filename) {
     // Инициализация книги Excel
@@ -482,9 +482,9 @@ bool exportToExcel(const LPProblem& prob, const SimplexResult& res, const string
     libxl::Format* numFormat = book->addFormat();
     numFormat->setNumFormat(libxl::NUMFORMAT_NUMBER);
 
-    // =========================================================================
+    
     // ЛИСТ 1: Титульный лист и постановка задачи
-    // =========================================================================
+    /
     libxl::Sheet* sheet1 = book->addSheet(L"Постановка задачи");
     if (!sheet1) return false;
 
@@ -522,9 +522,9 @@ bool exportToExcel(const LPProblem& prob, const SimplexResult& res, const string
     sheet1->setCol(0, 0, 30);
     sheet1->setCol(1, 1, 60);
 
-    // =========================================================================
+    
     // ЛИСТ 2: Процесс решения (Симплекс-таблицы)
-    // =========================================================================
+   
     libxl::Sheet* sheet2 = book->addSheet(L"Процесс решения");
     int currentRow = 0;
 
@@ -561,9 +561,9 @@ bool exportToExcel(const LPProblem& prob, const SimplexResult& res, const string
         currentRow += (int)tableau.size() + 3;
     }
 
-    // =========================================================================
+   
     // ЛИСТ 3: Результаты
-    // =========================================================================
+   
     libxl::Sheet* sheet3 = book->addSheet(L"Результаты");
     sheet3->writeStr(0, 0, L"ИТОГОВЫЕ РЕЗУЛЬТАТЫ", titleFormat);
 
