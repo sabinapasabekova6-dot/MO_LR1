@@ -51,7 +51,7 @@ int main() {
 
             // Вывод всех итераций в консоль
             for (size_t i = 0; i < currentResult.tableaus.size(); i++) {
-                cout << "--- Итерация " << i << " ---\n";
+                cout << "Итерация " << i << " \n";
                 int pR = -1, pC = -1;
                 if (i > 0 && i - 1 < currentResult.pivotHistory.size()) {
                     pR = currentResult.pivotHistory[i - 1].first;
@@ -62,7 +62,7 @@ int main() {
                 system("cls");
             }
 
-            cout << "=== ИТОГОВЫЙ РЕЗУЛЬТАТ ===\n";
+            cout << "ИТОГОВЫЙ РЕЗУЛЬТАТ\n";
             if (currentResult.isSolved) {
                 cout << "Оптимальное решение найдено!\n";
                 cout << "Z = " << currentResult.optimalValue << "\n";

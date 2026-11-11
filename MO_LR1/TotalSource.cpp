@@ -89,7 +89,7 @@ int menu_main_action() {
         show_menu(menu, m, n);
 
         // Отображение статуса текущей задачи
-        cout << "\n--- ТЕКУЩИЙ СТАТУС ---\n";
+        cout << "\nТЕКУЩИЙ СТАТУС\n";
         if (currentProblem.numVars == 0) {
             cout << "Задача не определена.\n";
         }
@@ -145,7 +145,7 @@ void inputProblemFromKeyboard() {
     currentProblem.b.resize(currentProblem.numConstraints, 0.0);
     currentProblem.constraintTypes.resize(currentProblem.numConstraints);
 
-    cout << "\nВведите коэффициенты целевой функции (через пробел):\n";
+    cout << "\nВведите коэффициенты целевой функции:\n";
     for (int i = 0; i < currentProblem.numVars; i++) {
         currentProblem.varNames[i] = "x" + to_string(i + 1);
         cout << "C" << (i + 1) << " = ";
@@ -220,8 +220,6 @@ void inputProblemFromFile(const string& filename) {
 
 
 // СИМПЛЕКС-МЕТОД (М-метод для универсальности)
-
-
 SimplexResult solveSimplex(const LPProblem& prob) {
     SimplexResult res;
     res.isSolved = false;
@@ -229,18 +227,7 @@ SimplexResult solveSimplex(const LPProblem& prob) {
     res.isInfeasible = false;
     res.optimalValue = 0.0;
 
-    // Если задача на минимизацию, преобразуем её в максимизацию (умножаем C на -1)
-    // Это стандартный приём для унификации симплекс-таблицы
-    vector<double> c_obj = prob.c;
-    bool wasMin = !prob.isMax;
-    if (wasMin) {
-        for (int i = 0; i < prob.numVars; i++) c_obj[i] = -c_obj[i];
-    }
-
-    // Подсчет дополнительных переменных (балансовые, избыточные, искусственные)
-    int numSlack = 0;
-    int numSurplus = 0;
-    int numArtificial = 0;
+    int numSlack = 0, numSurplus = 0, numArtificial = 0;
     for (char type : prob.constraintTypes) {
         if (type == 'L') numSlack++;
         else if (type == 'G') { numSurplus++; numArtificial++; }
@@ -248,28 +235,22 @@ SimplexResult solveSimplex(const LPProblem& prob) {
     }
 
     int totalVars = prob.numVars + numSlack + numSurplus + numArtificial;
-    int rows = prob.numConstraints + 1; // +1 для строки целевой функции (Z)
-    int cols = totalVars + 1; // +1 для столбца правых частей (RHS)
+    int rows = prob.numConstraints + 1;
+    int cols = totalVars + 1;
 
-    // Инициализация симплекс-таблицы нулями
     vector<vector<double>> tableau(rows, vector<double>(cols, 0.0));
     vector<string> headers;
 
-    // Заголовки для исходных переменных
     for (int i = 0; i < prob.numVars; i++) headers.push_back(prob.varNames[i]);
 
-    // Формирование таблицы ограничений
     int slackIdx = 0, surplusIdx = 0, artIdx = 0;
-    vector<int> basicVars(prob.numConstraints, -1); // Индексы базисных переменных
-
-    const double M = 1000000.0; // Большое число для М-метода
+    vector<int> basicVars(prob.numConstraints, -1);
 
     for (int i = 0; i < prob.numConstraints; i++) {
-        // Копируем исходные коэффициенты
         for (int j = 0; j < prob.numVars; j++) {
             tableau[i][j] = prob.A[i][j];
         }
-        tableau[i][totalVars] = prob.b[i]; // Правая часть
+        tableau[i][totalVars] = prob.b[i];
 
         if (prob.constraintTypes[i] == 'L') {
             tableau[i][prob.numVars + slackIdx] = 1.0;
@@ -278,8 +259,8 @@ SimplexResult solveSimplex(const LPProblem& prob) {
             slackIdx++;
         }
         else if (prob.constraintTypes[i] == 'G') {
-            tableau[i][prob.numVars + numSlack + surplusIdx] = -1.0; // Избыточная
-            tableau[i][prob.numVars + numSlack + numSurplus + artIdx] = 1.0; // Искусственная
+            tableau[i][prob.numVars + numSlack + surplusIdx] = -1.0;
+            tableau[i][prob.numVars + numSlack + numSurplus + artIdx] = 1.0;
             basicVars[i] = prob.numVars + numSlack + numSurplus + artIdx;
             headers.push_back("e" + to_string(surplusIdx + 1));
             headers.push_back("a" + to_string(artIdx + 1));
@@ -287,30 +268,160 @@ SimplexResult solveSimplex(const LPProblem& prob) {
             artIdx++;
         }
         else if (prob.constraintTypes[i] == 'E') {
-            tableau[i][prob.numVars + numSlack + numSurplus + artIdx] = 1.0; // Искусственная
+            tableau[i][prob.numVars + numSlack + numSurplus + artIdx] = 1.0;
             basicVars[i] = prob.numVars + numSlack + numSurplus + artIdx;
             headers.push_back("a" + to_string(artIdx + 1));
             artIdx++;
         }
     }
-
-    // Формирование строки целевой функции (Z)
-    for (int j = 0; j < prob.numVars; j++) {
-        tableau[rows - 1][j] = -c_obj[j]; // Z - C*X = 0 => Z_row = -C
-    }
     headers.push_back("RHS");
 
-    // Устранение искусственных переменных из базиса в строке Z (стандартный шаг М-метода)
-    // Если искусственная переменная в базисе, её коэффициент в Z-строке должен быть 0.
-    for (int i = 0; i < prob.numConstraints; i++) {
-        if (basicVars[i] >= prob.numVars + numSlack + numSurplus) { // Это искусственная переменная
+    if (numArtificial > 0) {
+        vector<vector<double>> phase1Tableau = tableau;
+        vector<int> phase1BasicVars = basicVars;
+
+        for (int j = prob.numVars + numSlack + numSurplus; j < totalVars; j++) {
+            phase1Tableau[rows - 1][j] = 1.0;
+        }
+
+        for (int i = 0; i < prob.numConstraints; i++) {
+            if (phase1BasicVars[i] >= prob.numVars + numSlack + numSurplus) {
+                for (int j = 0; j < cols; j++) {
+                    phase1Tableau[rows - 1][j] -= phase1Tableau[i][j];
+                }
+            }
+        }
+
+        res.tableaus.push_back(phase1Tableau);
+        res.tableauHeaders.push_back(headers);
+
+        int iter = 0;
+        const int MAX_ITER = 100;
+
+        while (iter < MAX_ITER) {
+            int pivotCol = -1;
+            double minVal = 0.0;
+            for (int j = 0; j < totalVars; j++) {
+                if (phase1Tableau[rows - 1][j] < minVal) {
+                    minVal = phase1Tableau[rows - 1][j];
+                    pivotCol = j;
+                }
+            }
+
+            if (pivotCol == -1) break;
+
+            int pivotRow = -1;
+            double minRatio = 1e30;
+            for (int i = 0; i < prob.numConstraints; i++) {
+                if (phase1Tableau[i][pivotCol] > 1e-6) {
+                    double ratio = phase1Tableau[i][totalVars] / phase1Tableau[i][pivotCol];
+                    if (ratio < minRatio) {
+                        minRatio = ratio;
+                        pivotRow = i;
+                    }
+                }
+            }
+
+            if (pivotRow == -1) {
+                res.isUnbounded = true;
+                return res;
+            }
+
+            res.pivotHistory.push_back({ pivotRow, pivotCol });
+
+            double pivotElement = phase1Tableau[pivotRow][pivotCol];
             for (int j = 0; j < cols; j++) {
-                tableau[rows - 1][j] += M * tableau[i][j];
+                phase1Tableau[pivotRow][j] /= pivotElement;
+            }
+            phase1BasicVars[pivotRow] = pivotCol;
+
+            for (int i = 0; i < rows; i++) {
+                if (i != pivotRow) {
+                    double factor = phase1Tableau[i][pivotCol];
+                    for (int j = 0; j < cols; j++) {
+                        phase1Tableau[i][j] -= factor * phase1Tableau[pivotRow][j];
+                    }
+                }
+            }
+
+            res.tableaus.push_back(phase1Tableau);
+            res.tableauHeaders.push_back(headers);
+            iter++;
+        }
+
+        double phase1Value = phase1Tableau[rows - 1][totalVars];
+        if (abs(phase1Value) > 1e-6) {
+            res.isInfeasible = true;
+            return res;
+        }
+
+        // ИСПРАВЛЕНИЕ: Правильное удаление искусственных переменных
+        int newTotalVars = totalVars - numArtificial;
+        vector<vector<double>> phase2Tableau(rows, vector<double>(newTotalVars + 1, 0.0));
+        vector<int> phase2BasicVars(prob.numConstraints, -1);
+        vector<string> phase2Headers;
+
+        // Копируем заголовки (без искусственных переменных)
+        for (int j = 0; j < prob.numVars + numSlack + numSurplus; j++) {
+            phase2Headers.push_back(headers[j]);
+        }
+        phase2Headers.push_back("RHS");
+
+        // Копируем столбцы (кроме искусственных переменных)
+        int colIdx = 0;
+        for (int j = 0; j < totalVars; j++) {
+            if (j >= prob.numVars + numSlack + numSurplus) continue;
+            for (int i = 0; i < rows; i++) {
+                phase2Tableau[i][colIdx] = phase1Tableau[i][j];
+            }
+            for (int i = 0; i < prob.numConstraints; i++) {
+                if (phase1BasicVars[i] == j) {
+                    phase2BasicVars[i] = colIdx;
+                }
+            }
+            colIdx++;
+        }
+
+        // ИСПРАВЛЕНИЕ: Копируем RHS (последний столбец)
+        for (int i = 0; i < rows; i++) {
+            phase2Tableau[i][newTotalVars] = phase1Tableau[i][totalVars];
+        }
+
+        tableau = phase2Tableau;
+        basicVars = phase2BasicVars;
+        headers = phase2Headers;
+        totalVars = newTotalVars;
+        cols = newTotalVars + 1;
+    }
+
+    // ФАЗА 2: Оптимизация исходной целевой функции
+    vector<double> c_obj = prob.c;
+    bool wasMin = !prob.isMax;
+    if (wasMin) {
+        for (int i = 0; i < prob.numVars; i++) c_obj[i] = -c_obj[i];
+    }
+
+    // ИСПРАВЛЕНИЕ: Правильная инициализация Z-строки
+    for (int j = 0; j < cols; j++) {
+        tableau[rows - 1][j] = 0.0;
+    }
+
+    // Устанавливаем коэффициенты целевой функции
+    for (int j = 0; j < prob.numVars; j++) {
+        tableau[rows - 1][j] = -c_obj[j];
+    }
+
+    // Устраняем базисные переменные из Z-строки
+    for (int i = 0; i < prob.numConstraints; i++) {
+        int bVar = basicVars[i];
+        if (bVar >= 0 && bVar < prob.numVars) {
+            double coeff = c_obj[bVar];
+            for (int j = 0; j < cols; j++) {
+                tableau[rows - 1][j] += coeff * tableau[i][j];
             }
         }
     }
 
-    // Сохраняем начальную таблицу
     res.tableaus.push_back(tableau);
     res.tableauHeaders.push_back(headers);
 
@@ -318,7 +429,6 @@ SimplexResult solveSimplex(const LPProblem& prob) {
     const int MAX_ITER = 100;
 
     while (iter < MAX_ITER) {
-        // 1. Поиск разрешающего столбца (наиболее отрицательный элемент в Z-строке)
         int pivotCol = -1;
         double minVal = 0.0;
         for (int j = 0; j < totalVars; j++) {
@@ -328,26 +438,11 @@ SimplexResult solveSimplex(const LPProblem& prob) {
             }
         }
 
-        // Если нет отрицательных элементов, решение оптимально
         if (pivotCol == -1) {
-            // Проверка на наличие искусственных переменных в базисе (недопустимость)
-            bool artificialInBasis = false;
-            for (int i = 0; i < prob.numConstraints; i++) {
-                if (basicVars[i] >= prob.numVars + numSlack + numSurplus && abs(tableau[i][totalVars]) > 1e-6) {
-                    artificialInBasis = true;
-                    break;
-                }
-            }
-            if (artificialInBasis) {
-                res.isInfeasible = true;
-            }
-            else {
-                res.isSolved = true;
-            }
+            res.isSolved = true;
             break;
         }
 
-        // 2. Поиск разрешающей строки (минимальное положительное отношение RHS к элементу столбца)
         int pivotRow = -1;
         double minRatio = 1e30;
         for (int i = 0; i < prob.numConstraints; i++) {
@@ -360,25 +455,19 @@ SimplexResult solveSimplex(const LPProblem& prob) {
             }
         }
 
-        // Если все элементы в разрешающем столбце <= 0, функция неограниченна
         if (pivotRow == -1) {
             res.isUnbounded = true;
             break;
         }
 
-        // Сохраняем координаты разрешающего элемента
         res.pivotHistory.push_back({ pivotRow, pivotCol });
 
-        // 3. Приведение таблицы к каноническому виду (метод Гаусса)
         double pivotElement = tableau[pivotRow][pivotCol];
-
-        // Делим разрешающую строку на разрешающий элемент
         for (int j = 0; j < cols; j++) {
             tableau[pivotRow][j] /= pivotElement;
         }
-        basicVars[pivotRow] = pivotCol; // Обновляем базисную переменную
+        basicVars[pivotRow] = pivotCol;
 
-        // Обнуляем остальные элементы в разрешающем столбце
         for (int i = 0; i < rows; i++) {
             if (i != pivotRow) {
                 double factor = tableau[i][pivotCol];
@@ -388,22 +477,19 @@ SimplexResult solveSimplex(const LPProblem& prob) {
             }
         }
 
-        // Сохраняем итерацию
         res.tableaus.push_back(tableau);
         res.tableauHeaders.push_back(headers);
         iter++;
     }
 
-    // Если решение найдено, извлекаем значения переменных
     if (res.isSolved) {
         res.solution.assign(prob.numVars, 0.0);
         for (int i = 0; i < prob.numConstraints; i++) {
-            if (basicVars[i] < prob.numVars) {
+            if (basicVars[i] >= 0 && basicVars[i] < prob.numVars) {
                 res.solution[basicVars[i]] = tableau[i][totalVars];
             }
         }
         res.optimalValue = tableau[rows - 1][totalVars];
-        // Если исходная задача была на минимизацию, возвращаем знак
         if (wasMin) {
             res.optimalValue = -res.optimalValue;
         }
@@ -484,7 +570,7 @@ bool exportToExcel(const LPProblem& prob, const SimplexResult& res, const string
 
     
     // ЛИСТ 1: Титульный лист и постановка задачи
-    /
+    
     libxl::Sheet* sheet1 = book->addSheet(L"Постановка задачи");
     if (!sheet1) return false;
 
